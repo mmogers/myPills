@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#f7f7f5">
+  <title>Моя аптечка</title>
+  <style>
+    :root {
+      --bg: #f7f7f5;
+      --card: #ffffff;
+      --text: #222;
+      --muted: #777;
+      --border: #e6e6e2;
+      --accent: #2f6f62;
+      --danger: #c94a4a;
+      --warning: #c98a28;
+      --ok: #4c8a57;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .app {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 20px 16px 90px;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    h1 { margin: 0; font-size: 28px; }
+    h2 { font-size: 18px; margin: 24px 0 10px; }
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 11px 14px;
+      font: inherit;
+      cursor: pointer;
+    }
+    .add-btn { background: var(--accent); color: white; font-weight: 600; }
+    .toolbar { display: flex; gap: 8px; margin-bottom: 14px; }
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: white;
+      border-radius: 10px;
+      padding: 11px;
+      font: inherit;
+    }
+    textarea { min-height: 70px; resize: vertical; }
+    .toolbar input { flex: 1; }
+    .filters {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .filter {
+      white-space: nowrap;
+      background: white;
+      border: 1px solid var(--border);
+    }
+    .filter.active { background: #e5efec; border-color: #c6ddd7; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px;
+      margin: 9px 0;
+    }
+    .medicine-top { display:flex; justify-content:space-between; gap:10px; }
+    .medicine-name { font-size: 17px; font-weight: 650; }
+    .meta { color: var(--muted); font-size: 14px; margin-top: 5px; line-height: 1.4; }
+    .expiry { font-size: 14px; font-weight: 600; margin-top: 9px; }
+    .expired { color: var(--danger); }
+    .soon { color: var(--warning); }
+    .good { color: var(--ok); }
+    .actions { display:flex; gap:6px; }
+    .icon-btn { background:#f1f1ee; padding:7px 9px; }
+    .delete { color: var(--danger); }
+    .empty { text-align:center; color:var(--muted); padding:35px 10px; }
+    .modal {
+      position: fixed; inset: 0; background: rgba(0,0,0,.35);
+      display:none; align-items:flex-end; justify-content:center;
+      z-index: 10;
+    }
+    .modal.open { display:flex; }
+    .sheet {
+      width:100%; max-width:720px; background:white;
+      border-radius:20px 20px 0 0; padding:20px 16px 28px;
+      max-height:90vh; overflow:auto;
+    }
+    .sheet h2 { margin-top:0; }
+    .field { margin: 12px 0; }
+    .field label { display:block; font-size:14px; font-weight:600; margin-bottom:6px; }
+    .form-actions { display:flex; gap:8px; margin-top:18px; }
+    .primary { background:var(--accent); color:white; flex:1; }
+    .secondary { background:#eee; }
+    .note { color:var(--muted); font-size:12px; margin-top:16px; line-height:1.4; }
+    @media (min-width: 700px) {
+      .modal { align-items:center; }
+      .sheet { border-radius:20px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <h1>💊 Моя аптечка</h1>
+      <button class="add-btn" id="addBtn">＋ Добавить</button>
+    </header>
+
+    <div class="toolbar">
+      <input id="search" type="search" placeholder="Поиск лекарства...">
+    </div>
+
+    <div class="filters" id="filters"></div>
+    <div id="content"></div>
+
+    <div class="note">
+      Данные сохраняются только в этом браузере на этом устройстве (localStorage).
+      Если очистить данные сайта/браузера, список может быть удалён.
+    </div>
+  </main>
+
+  <div class="modal" id="modal">
+    <section class="sheet">
+      <h2 id="modalTitle">Добавить лекарство</h2>
+      <form id="form">
+        <div class="field">
+          <label for="name">Название *</label>
+          <input id="name" required placeholder="Например, Nurofen">
+        </div>
+
+        <div class="field">
+          <label for="category">Категория</label>
+          <select id="category"></select>
+          <div style="display:flex; gap:8px; margin-top:8px;">
+            <input id="newCategory" placeholder="Новая категория">
+            <button type="button" class="secondary" id="addCategoryBtn">＋ Добавить</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="purpose">От чего</label>
+          <input id="purpose" placeholder="Например, головная боль">
+        </div>
+
+        <div class="field">
+          <label for="expiry">Срок годности *</label>
+          <input id="expiry" type="month" required>
+        </div>
+
+        <div class="field">
+          <label for="quantity">Количество</label>
+          <input id="quantity" placeholder="Например, 20 таблеток">
+        </div>
+
+        <div class="field">
+          <label for="notes">Заметки</label>
+          <textarea id="notes" placeholder="Дополнительная информация"></textarea>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="secondary" id="cancelBtn">Отмена</button>
+          <button type="submit" class="primary">Сохранить</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+<script>
+const STORAGE_KEY = "my-medicine-cabinet-v1";
+let medicines = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+let editingId = null;
+let activeCategory = "Все";
+
+const $ = id => document.getElementById(id);
+
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(medicines));
+}
+
+function expiryInfo(value) {
+  if (!value) return { text: "", cls: "" };
+  const [y, m] = value.split("-").map(Number);
+  const expiry = new Date(y, m, 0, 23, 59, 59);
+  const now = new Date();
+  const diff = (expiry - now) / (1000 * 60 * 60 * 24);
+
+  const formatted = `${String(m).padStart(2, "0")}/${y}`;
+  if (expiry < now) return { text: `Просрочено · ${formatted}`, cls: "expired" };
+  if (diff <= 180) return { text: `Скоро истекает · ${formatted}`, cls: "soon" };
+  return { text: `Срок годности · ${formatted}`, cls: "good" };
+}
+
+const DEFAULT_CATEGORIES = ["Обезболивающие", "Простуда", "Аллергия", "ЖКТ", "Витамины", "Другое"];
+
+function categories() {
+  return [...new Set([...DEFAULT_CATEGORIES, ...medicines.map(x => x.category).filter(Boolean)])];
+}
+
+function renderCategorySelect(selected = null) {
+  const select = $("category");
+  const current = selected ?? select.value;
+  select.innerHTML = categories().map(c =>
+    `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`
+  ).join("");
+  if (categories().includes(current)) select.value = current;
+}
+
+function renderFilters() {
+  $("filters").innerHTML = categories().map(c =>
+    `<button class="filter ${c === activeCategory ? "active" : ""}" data-category="${escapeHtml(c)}">${escapeHtml(c)}</button>`
+  ).join("");
+
+  document.querySelectorAll(".filter").forEach(btn => {
+    btn.onclick = () => {
+      activeCategory = btn.dataset.category;
+      render();
+    };
+  });
+}
+
+function render() {
+  renderFilters();
+  const query = $("search").value.trim().toLowerCase();
+
+  let list = medicines.filter(m => {
+    const matchesCategory = activeCategory === "Все" || m.category === activeCategory;
+    const text = `${m.name} ${m.purpose} ${m.category} ${m.notes}`.toLowerCase();
+    return matchesCategory && text.includes(query);
+  });
+
+  list.sort((a,b) => a.expiry.localeCompare(b.expiry));
+
+  if (!list.length) {
+    $("content").innerHTML = `<div class="empty">Пока нет лекарств.<br>Нажми «＋ Добавить», чтобы добавить первое.</div>`;
+    return;
+  }
+
+  const groups = {};
+  list.forEach(m => {
+    const cat = m.category || "Без категории";
+    (groups[cat] ||= []).push(m);
+  });
+
+  $("content").innerHTML = Object.entries(groups).map(([cat, items]) => `
+    <h2>${escapeHtml(cat)}</h2>
+    ${items.map(cardHtml).join("")}
+  `).join("");
+
+  document.querySelectorAll("[data-edit]").forEach(b => b.onclick = () => editMedicine(b.dataset.edit));
+  document.querySelectorAll("[data-delete]").forEach(b => b.onclick = () => deleteMedicine(b.dataset.delete));
+}
+
+function cardHtml(m) {
+  const exp = expiryInfo(m.expiry);
+  return `
+    <article class="card">
+      <div class="medicine-top">
+        <div>
+          <div class="medicine-name">${escapeHtml(m.name)}</div>
+          ${m.purpose ? `<div class="meta">🩺 ${escapeHtml(m.purpose)}</div>` : ""}
+          ${m.quantity ? `<div class="meta">🔢 ${escapeHtml(m.quantity)}</div>` : ""}
+          ${m.notes ? `<div class="meta">📝 ${escapeHtml(m.notes)}</div>` : ""}
+          <div class="expiry ${exp.cls}">${exp.text}</div>
+        </div>
+        <div class="actions">
+          <button class="icon-btn" data-edit="${m.id}" aria-label="Редактировать">✏️</button>
+          <button class="icon-btn delete" data-delete="${m.id}" aria-label="Удалить">🗑️</button>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function openModal(m = null) {
+  editingId = m ? m.id : null;
+  $("modalTitle").textContent = m ? "Редактировать лекарство" : "Добавить лекарство";
+  $("name").value = m?.name || "";
+  renderCategorySelect(m?.category || "Другое");
+  $("purpose").value = m?.purpose || "";
+  $("expiry").value = m?.expiry || "";
+  $("quantity").value = m?.quantity || "";
+  $("notes").value = m?.notes || "";
+  $("modal").classList.add("open");
+  setTimeout(() => $("name").focus(), 50);
+}
+
+function closeModal() {
+  $("modal").classList.remove("open");
+  $("form").reset();
+  editingId = null;
+}
+
+function editMedicine(id) {
+  const m = medicines.find(x => x.id === id);
+  if (m) openModal(m);
+}
+
+function deleteMedicine(id) {
+  const m = medicines.find(x => x.id === id);
+  if (!m) return;
+  if (confirm(`Удалить «${m.name}»?`)) {
+    medicines = medicines.filter(x => x.id !== id);
+    save();
+    render();
+  }
+}
+
+$("form").addEventListener("submit", e => {
+  e.preventDefault();
+  const item = {
+    id: editingId || crypto.randomUUID(),
+    name: $("name").value.trim(),
+    category: $("category").value,
+    purpose: $("purpose").value.trim(),
+    expiry: $("expiry").value,
+    quantity: $("quantity").value.trim(),
+    notes: $("notes").value.trim()
+  };
+
+  if (editingId) {
+    const index = medicines.findIndex(x => x.id === editingId);
+    medicines[index] = item;
+  } else {
+    medicines.push(item);
+  }
+  save();
+  closeModal();
+  render();
+});
+
+$("addBtn").onclick = () => openModal();
+$("cancelBtn").onclick = closeModal;
+
+$("addCategoryBtn").onclick = () => {
+  const input = $("newCategory");
+  const name = input.value.trim();
+  if (!name) return;
+
+  const existing = categories().find(c => c.toLowerCase() === name.toLowerCase());
+  if (existing) {
+    $("category").value = existing;
+    input.value = "";
+    return;
+  }
+
+  // Категория сохраняется автоматически вместе с лекарством.
+  // Здесь сразу добавляем её в список select.
+  const option = document.createElement("option");
+  option.value = name;
+  option.textContent = name;
+  $("category").appendChild(option);
+  $("category").value = name;
+  input.value = "";
+};
+$("search").addEventListener("input", render);
+$("newCategory").addEventListener("keydown", e => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    $("addCategoryBtn").click();
+  }
+});
+$("modal").addEventListener("click", e => {
+  if (e.target === $("modal")) closeModal();
+});
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, c => ({
+    "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#039;"
+  }[c]));
+}
+
+render();
+</script>
+</body>
+</html>
