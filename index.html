@@ -5,6 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#f7f7f5">
   <title>Моя аптечка</title>
+
+  <!-- PWA: манифест -->
+  <link rel="manifest" href="manifest.json">
+
+  <!-- PWA: иконка на экране Домой (iOS) -->
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="icon" href="icon-192.png">
+
+  <!-- PWA: поведение как у приложения на iOS -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Аптечка">
+
   <style>
     :root {
       --bg: #f7f7f5;
@@ -355,8 +368,6 @@ $("addCategoryBtn").onclick = () => {
     return;
   }
 
-  // Категория сохраняется автоматически вместе с лекарством.
-  // Здесь сразу добавляем её в список select.
   const option = document.createElement("option");
   option.value = name;
   option.textContent = name;
@@ -382,6 +393,15 @@ function escapeHtml(value) {
 }
 
 render();
+
+// PWA: регистрируем service worker для офлайн-работы
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(err => {
+      console.log("Service worker не зарегистрирован:", err);
+    });
+  });
+}
 </script>
 </body>
 </html>
